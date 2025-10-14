@@ -26,9 +26,5 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
-# Dependency lock files
-package-lock.json
-yarn.lock
-
 # Test coverage reports
 /coverage
