@@ -5,7 +5,7 @@ import path = require('path');
 /**
  * TODO (deferred work for netflixTop10.ts)
  * - Define MongoDB schema for Netflix Top 10 snapshots (see TODO.netflixTop10.md)
- * - Add POST /netflix-top10/scrape to persist a snapshot (meta + data[]) into MongoDB via Prisma
+ * - Add POST /netflix-top10/scrape to persist a snapshot (meta + data[]) into MongoDB (ORM TBD)
  * - Add GET /netflix-top10 to query snapshots by country/category/date with pagination
  * - Improve filter application: reliably set both country and category on live Tudum page (currently falls back to Global in some cases)
  * - Add cookie/region banner handling for live page navigation
@@ -117,11 +117,13 @@ async function scrapeNetflixTop10(
     const categoryLabel = CategoryLabelMap[category];
 
     if (useSample) {
-      const samplePath = opts?.samplePath || process.env.NETFLIX_SAMPLE_PATH || path.join(process.cwd(), 'sample', 'tudum-top-10-global-table.html');
-      const html = fs.readFileSync(samplePath, 'utf-8');
-      await page.setContent(html, { waitUntil: 'domcontentloaded' });
+        const samplePath = opts?.samplePath || process.env.NETFLIX_SAMPLE_PATH || path.join(process.cwd(), 'sample', 'tudum-top-10-global-table.html');
+        console.info(`[netflix] render sample HTML from ${samplePath}`);
+        const html = fs.readFileSync(samplePath, 'utf-8');
+        await page.setContent(html, { waitUntil: 'domcontentloaded' });
     } else {
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
+        console.info(`[netflix] visiting ${url}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
       await applyFilters(page, country, categoryLabel);
     }
 

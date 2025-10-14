@@ -2,7 +2,7 @@ x# TODO – Netflix Top 10 module
 
 This document tracks deferred work for the Netflix Top 10 scraper and API.
 
-## 1) Database schema (MongoDB via Prisma) – planned
+## 1) Database schema (MongoDB) – planned
 
 Collection: `netflix_top10_snapshots`
 - _id: ObjectId
@@ -25,7 +25,7 @@ Indexes:
 - { country: 1, category: 1, scrapedAt: -1 }
 - Optional: { "data.title": 1 } for text search.
 
-## 2) API endpoints – planned
+## 2) API endpoints – planned (persistence TBD)
 
 - POST /netflix-top10/scrape
   - Body: { country?: string, category?: enum, useSample?: boolean, timeoutMs?: number }

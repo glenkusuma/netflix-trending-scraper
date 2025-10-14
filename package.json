@@ -1,0 +1,16 @@
+{
+  "name": "scraper-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["backend"],
+  "scripts": {
+    "dev": "npm --prefix backend run dev",
+    "build": "npm --prefix backend run build",
+    "start": "npm --prefix backend run start",
+    "dc:up": "docker compose up --build -d",
+    "dc:down": "docker compose down",
+    "dc:mongo": "docker compose up -d mongo",
+    "dc:logs": "docker compose logs -f backend",
+    "dc:ps": "docker compose ps"
+  }
+}

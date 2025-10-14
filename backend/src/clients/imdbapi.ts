@@ -29,6 +29,7 @@ function buildUrl(pathname: string, params?: Record<string, string | number | bo
 
 async function httpGet<T>(pathname: string, params?: Record<string, any>, init?: FetchInit): Promise<T> {
   const url = buildUrl(pathname, params);
+  console.info(`[imdbapi] GET ${url}`);
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (API_KEY && AUTH_STYLE === 'header') {
     headers['Authorization'] = `Bearer ${API_KEY}`;
@@ -76,7 +77,9 @@ async function batchGetTitles(titleIds: string[]): Promise<{ titles?: ImdbTitle[
   const url = buildUrl('/titles:batchGet');
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (API_KEY && AUTH_STYLE === 'header') headers['Authorization'] = `Bearer ${API_KEY}`;
-  const res = await fetch(`${url}?${params.toString()}`);
+  const fullUrl = `${url}?${params.toString()}`;
+  console.info(`[imdbapi] GET ${fullUrl}`);
+  const res = await fetch(fullUrl);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`IMDbAPI batchGet failed: ${res.status} ${res.statusText} ${text}`);

@@ -3,6 +3,11 @@ services:
     image: mongo:7
     container_name: mongo
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "27017:27017"
     volumes:
@@ -11,8 +16,9 @@ services:
     build: ./backend
     container_name: scraper-backend
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/scraped
       - SERVER_PORT=8000
+      - MONGODB_URI=mongodb://mongo:27017/scraped
+      - MONGODB_DB=scraped
       - TARGET_URL=https://example.com
       - MAX_CONCURRENCY=4
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
@@ -25,9 +31,6 @@ services:
     shm_size: 1gb
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/home/pptruser/app
-      - backend_node_modules:/home/pptruser/app/node_modules
 volumes:
   mongo-data:
-  backend_node_modules:
+    name: scraper_mongo_data

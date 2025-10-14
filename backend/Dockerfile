@@ -25,12 +25,10 @@ RUN mkdir -p /home/pptruser/.local/share/applications \
 
 COPY --chown=pptruser:pptruser package.json package-lock.json ./
 RUN npm ci && npm cache clean --force
-
-COPY --chown=pptruser:pptruser prisma ./prisma/
 COPY --chown=pptruser:pptruser tsconfig.json .
 COPY --chown=pptruser:pptruser .env .
 COPY --chown=pptruser:pptruser src ./src
 
-RUN npx prisma generate && npm run build
+RUN npm run build
 
 CMD ["sh", "-c", "node dist/server.js"]
