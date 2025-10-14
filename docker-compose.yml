@@ -1,0 +1,33 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+  backend:
+    build: ./backend
+    container_name: scraper-backend
+    environment:
+      - DATABASE_URL=mongodb://mongo:27017/scraped
+      - SERVER_PORT=8000
+      - TARGET_URL=https://example.com
+      - MAX_CONCURRENCY=4
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    depends_on:
+      - mongo
+    security_opt:
+      - seccomp:unconfined
+      - no-new-privileges:false
+    shm_size: 1gb
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/home/pptruser/app
+      - backend_node_modules:/home/pptruser/app/node_modules
+volumes:
+  mongo-data:
+  backend_node_modules:
