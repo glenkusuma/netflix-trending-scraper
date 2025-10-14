@@ -1,90 +1,71 @@
-# Scraper Backend (Puppeteer + Express + Mongoose)
+# Scraper – Netflix Tudum Top 10 + IMDb + Mongo (Mongoose)
 
-A Dockerized Node/Express backend that scrapes Netflix Tudum Top 10 with Puppeteer and persists data to MongoDB via Mongoose. It also exposes IMDb API passthrough and simple persistence endpoints.
+This service scrapes Netflix Tudum Top 10 with Puppeteer and persists data to MongoDB via Mongoose. It also exposes IMDb API passthrough endpoints and lets you save IMDb titles to Mongo.
 
 ## Project layout
 
-- backend/
-  - Dockerfile: Chrome-enabled build for Puppeteer in containers
-  - package.json: scripts and dependencies
-  - src/
-    - server.ts: Express app, Mongo connect, routes
-    - db.ts: Mongoose connection helper
-    - clients/
-      - imdbapi.ts: Lightweight client to api.imdbapi.dev
-    - models/
-      - imdb.ts: Saved IMDb title documents
-      - netflix.ts: Netflix Top 10 snapshots
-    - scrapers/
-      - netflixTop10.ts: Tudum Top 10 scraper (filters, normalization)
-  - sample/
-    - tudum-top-10-global*.html: Example HTML for offline tests
-- docker-compose.yml: Spins up MongoDB and the backend
-- TODO.netflixTop10.md: Future enhancements for the Netflix module
+- Dockerfile: Chrome-enabled build for Puppeteer in containers
+- package.json: scripts and dependencies
+- tsconfig.json: TypeScript config (src -> dist)
+- src/
+  - server.ts: Express app, Mongo connect, routes
+  - db.ts: Mongoose connection helper
+  - clients/
+    - imdbapi.ts: Lightweight client to api.imdbapi.dev
+  - models/
+    - imdb.ts: Saved IMDb title documents
+    - netflix.ts: Netflix Top 10 snapshots
+  - scrapers/
+    - netflixTop10.ts: Tudum Top 10 scraper (filters, normalization)
+- sample/
+  - tudum-top-10-global*.html: Example HTML for offline tests
+- docs/
+  - TODO.netflixTop10.md: Future enhancements for the Netflix module
+- docker-compose.yml: Spins up MongoDB and the scraper service
 
-## Quick start (from repo root)
+## Run with Docker
 
-- Dev (run backend locally)
-  - npm run dev
-- Build backend
-  - npm run build
-- Start built backend
-  - npm start
-
-## Quick start (Docker)
-
-- Start services
+- From repo root:
   - npm run dc:up
-- Tail backend logs
   - npm run dc:logs
-- Stop services
   - npm run dc:down
 
-Backend will be available at http://localhost:8000 by default.
-
-Tip: You can also start just Mongo for local dev while running the app outside Docker:
-- npm run dc:mongo
-
-Persistence: MongoDB data is stored in a named volume `scraper_mongo_data` and survives container recreation. Use `docker compose down -v` to remove it.
+Default server: http://localhost:8000
+Mongo data persists in named volume `scraper_mongo_data`.
 
 ## Endpoints
 
-Base health
+Base
 - GET `/` → { status: "ok" }
 
-Netflix module
-- GET `/netflix` → lists Netflix-related endpoints
-- GET `/netflix/top10`
-  - Query: `country` (default: Global), `category` (movies_en | movies_non_en | shows_en | shows_non_en; default: movies_en), `sample` (1|true for local sample), `timeoutMs` (optional)
-  - Action: Scrape and return structured rows without saving
-- POST `/netflix/scrape`
+Netflix
+- GET `/netflix` → list of Netflix endpoints
+- GET `/netflix/top10` → scrape preview
+  - Query: `country` (default Global), `category` (movies_en | movies_non_en | shows_en | shows_non_en; default movies_en), `sample` (1|true), `timeoutMs` (optional)
+- POST `/netflix/scrape` → scrape and persist snapshot
   - Body: { country?, category?, useSample?, timeoutMs? }
-  - Action: Scrape and persist a snapshot to MongoDB; returns snapshot id and meta
-- GET `/netflix/snapshots`
+- GET `/netflix/snapshots` → list saved snapshots
   - Query: `country?`, `category?`, `take` (1..100; default 20), `cursor?`
-  - Action: List saved snapshots (most recent first) with cursor pagination
 
-IMDb module
-- GET `/imdb/search` → search titles via api.imdbapi.dev
-  - Query: `q` (required), `limit` (optional)
-- GET `/imdb/titles/:id` → fetch a single title by id (e.g., tt15398776)
-- POST `/imdb/titles/:id/save` → fetch and upsert the title into MongoDB
-- GET `/imdb/saved` → list saved titles with `take` and `cursor` pagination
+IMDb
+- GET `/imdb/search` → search titles
+- GET `/imdb/titles/:id` → fetch a title
+- POST `/imdb/titles/:id/save` → fetch + upsert title into Mongo
+- GET `/imdb/saved` → list saved titles (paged)
 
-### Examples
+### Quick examples
 
-- Preview Netflix scrape from sample HTML
+- Preview Netflix (sample):
   - http://localhost:8000/netflix/top10?country=Global&category=movies_en&sample=1
-- Persist a Netflix snapshot (sample data)
-  - POST http://localhost:8000/netflix/scrape
-    Body: { "country": "Global", "category": "movies_en", "useSample": true }
-- List saved Netflix snapshots
+- Save a Netflix snapshot:
+  - POST http://localhost:8000/netflix/scrape with `{ "country": "Global", "category": "movies_en", "useSample": true }`
+- List Netflix snapshots:
   - http://localhost:8000/netflix/snapshots?country=Global&category=movies_en&take=5
-- Fetch IMDb title
+- Fetch IMDb title:
   - http://localhost:8000/imdb/titles/tt15398776
-- Save IMDb title
+- Save IMDb title:
   - POST http://localhost:8000/imdb/titles/tt15398776/save
-- List saved IMDb titles
+- List saved IMDb titles:
   - http://localhost:8000/imdb/saved?take=5
 
 ## Environment variables
@@ -93,13 +74,13 @@ Server
 - `SERVER_PORT` (default 8000)
 
 MongoDB
-- `MONGODB_URI` (default `mongodb://mongo:27017/scraped` in Docker)
+- `MONGODB_URI` (default `mongodb://127.0.0.1:27017/scraped` for local dev; Docker overrides to `mongodb://mongo:27017/scraped`)
 - `MONGODB_DB` (default `scraped`)
 
 IMDb client
 - `IMDBAPI_BASE_URL` (default https://api.imdbapi.dev)
 - `IMDBAPI_API_KEY` (optional)
-- `IMDBAPI_AUTH_STYLE` (optional: `header` or `query`)
+- `IMDBAPI_AUTH_STYLE` (optional: `header` | `query`)
 
 Netflix scraper (sample mode)
 - `USE_NETFLIX_SAMPLE` (default false)
@@ -118,20 +99,15 @@ Indexes are synchronized on app startup.
 
 ## Development
 
-From repo root (recommended shortcuts):
+From repo root (shortcuts):
 
 - Dev server: `npm run dev`
 - Build: `npm run build`
 - Start (built): `npm start`
 
-Or directly from `backend/`:
+Tip: You can also start just Mongo for local dev while running the app outside Docker:
 
-- Install deps: `npm install`
-- Dev server: `npm run dev`
-- Build: `npm run build`
-- Start (built): `npm start`
-
-Chrome/Chromium is installed in the Docker image. For local dev on Linux, Puppeteer downloads its own Chromium; ensure required libraries are present.
+- `npm run dc:mongo`
 
 ## Notes
 
@@ -140,9 +116,9 @@ Chrome/Chromium is installed in the Docker image. For local dev on Linux, Puppet
 - The old `/test/netflix-top10` route was replaced with `/netflix/top10` and `/netflix/scrape`.
 
 Local vs Docker Mongo
-- Local dev uses `MONGODB_URI=mongodb://127.0.0.1:27017/scraped` (see `backend/.env`)
+- Local dev uses `MONGODB_URI=mongodb://127.0.0.1:27017/scraped` (see `.env` if you add one)
 - Docker runtime uses `MONGODB_URI=mongodb://mongo:27017/scraped` (set via `docker-compose.yml`)
 
 Sample mode
-- Default sample file path: `backend/sample/tudum-top-10-global-table.html`
-- Override by setting `NETFLIX_SAMPLE_PATH` in `backend/.env`
+- Default sample file path: `./sample/tudum-top-10-global-table.html`
+- Override by setting `NETFLIX_SAMPLE_PATH` in your environment

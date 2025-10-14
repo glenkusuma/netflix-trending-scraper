@@ -13,7 +13,7 @@ services:
     volumes:
       - mongo-data:/data/db
   backend:
-    build: ./backend
+    build: .
     container_name: scraper-backend
     environment:
       - SERVER_PORT=8000
