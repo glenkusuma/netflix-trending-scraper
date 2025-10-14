@@ -78,6 +78,7 @@ export async function scrapeAndSaveSnapshot(options: ScrapeOptions = {}) {
 
   const doc = {
     _id: stableId,
+    fmt: 'html',
     title: result.meta.title,
     sourceUrl: result.meta.sourceUrl,
     global: result.meta.global,

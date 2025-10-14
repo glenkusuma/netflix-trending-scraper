@@ -40,6 +40,7 @@ export type Top10Result = {
 
 export interface NetflixTop10Snapshot {
   _id?: string;
+  fmt?: string;
   title?: string;
   sourceUrl: string;
   global: boolean;
@@ -73,6 +74,7 @@ const RowSchema = new Schema<Top10Row>(
 const NetflixSnapshotSchema = new Schema<NetflixTop10Snapshot>(
   {
     _id: { type: String },
+    fmt: { type: String, required: false, default: null },
     title: { type: String, required: true },
     sourceUrl: { type: String, required: true },
     global: { type: Boolean, required: true, index: true },
