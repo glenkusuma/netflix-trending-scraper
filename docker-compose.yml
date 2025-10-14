@@ -12,6 +12,7 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+      
   backend:
     build: .
     container_name: scraper-backend
@@ -19,7 +20,6 @@ services:
       - SERVER_PORT=8000
       - MONGODB_URI=mongodb://mongo:27017/scraped
       - MONGODB_DB=scraped
-      - TARGET_URL=https://example.com
       - MAX_CONCURRENCY=4
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
       - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
