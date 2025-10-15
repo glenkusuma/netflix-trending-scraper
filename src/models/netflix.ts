@@ -40,6 +40,7 @@ export type Top10Result = {
 
 export interface NetflixTop10Snapshot {
   _id?: string;
+  src: string;
   fmt?: string;
   title?: string;
   sourceUrl: string;
@@ -74,6 +75,7 @@ const RowSchema = new Schema<Top10Row>(
 const NetflixSnapshotSchema = new Schema<NetflixTop10Snapshot>(
   {
     _id: { type: String },
+    src: { type: String, required: false, default: 'netflix' },
     fmt: { type: String, required: false, default: null },
     title: { type: String, required: true },
     sourceUrl: { type: String, required: true },
@@ -102,3 +104,5 @@ NetflixSnapshotSchema.index({ country: 1, category: 1, scrapedAt: -1 });
 export const NetflixTop10SnapshotModel: Model<NetflixTop10Snapshot> =
   (models.NetflixTop10Snapshot as Model<NetflixTop10Snapshot>) ||
   model<NetflixTop10Snapshot>('NetflixTop10Snapshot', NetflixSnapshotSchema);
+
+export { RowSchema  };

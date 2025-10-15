@@ -1,10 +1,6 @@
+import { createHash } from 'crypto';
 import { ImdbTitleModel } from '../../models/imdb';
-// Client exports via `export =`
-const imdbapi = require('../../clients/imdbapi') as {
-  searchTitles: (q: string, limit?: number) => Promise<any>;
-  getTitleById: (id: string) => Promise<any>;
-  batchGetTitles: (ids: string[]) => Promise<any>;
-};
+import imdbapi from './clients/imdbapi';
 
 export async function searchTitles(query: string, limit?: number) {
   if (!query || !query.trim()) throw new Error('query is required');
@@ -12,14 +8,24 @@ export async function searchTitles(query: string, limit?: number) {
 }
 
 export async function getTitle(id: string) {
-  return imdbapi.getTitleById(id);
-}
+  try {
+    const data = await imdbapi.getTitleById(id);
 
-export async function saveTitleById(id: string) {
-  const data = await imdbapi.getTitleById(id);
-  await (ImdbTitleModel as any).updateOne({ titleId: id }, { $set: { data } }, { upsert: true });
-  const saved = await (ImdbTitleModel as any).findOne({ titleId: id }).lean();
-  return { ok: true, titleId: id, _id: saved?._id };
+    const idInput = `imdb_api|${id || ''}`;
+    const stableId = createHash('sha1').update(idInput).digest('hex');
+
+    // Flatten data into top-level fields per updated model
+    await (ImdbTitleModel as any).updateOne(
+      { _id: stableId },
+      { $set: { _id: stableId, ...data, id: (data as any)?.id ?? id } },
+      { upsert: true }
+    );
+    const saved = await (ImdbTitleModel as any).findOne({ _id: stableId }).lean();
+    return { ok: true, titleId: id, _id: saved?._id, data };
+  } catch (error) {
+    console.error('Error fetching title:', error);
+    return { ok: false, error: 'Failed to fetch title' };
+  }
 }
 
 export async function listSaved(params: { take?: number; cursor?: string }) {
@@ -35,4 +41,4 @@ export async function listSaved(params: { take?: number; cursor?: string }) {
   return { items, nextCursor };
 }
 
-export default { searchTitles, getTitle, saveTitleById, listSaved };
+export default { searchTitles, getTitle, listSaved };
