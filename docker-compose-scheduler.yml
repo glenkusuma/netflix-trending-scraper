@@ -7,11 +7,6 @@ services:
       - "3001:3001"
     volumes:
       - uptimekuma-data:/app/data
-    networks:
-      - mongo-cluster
-
-networks:
-  mongo-cluster:
 
 volumes:
   uptimekuma-data:
