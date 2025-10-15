@@ -42,5 +42,18 @@ const NetflixImdbSchema = new Schema<any>(
   { timestamps: true, collection: 'netflix_imdb' }
 );
 
+// Text index for fast title searching across the top-level title and nested data.title
+// Title gets higher weight than nested row titles.
+NetflixImdbSchema.index(
+  { title: 'text', 'data.title': 'text' },
+  { name: 'netflix_imdb_text_idx', weights: { title: 5, 'data.title': 1 } }
+);
+
+// Compound index to support fast filtering by country + category with pagination by _id
+NetflixImdbSchema.index(
+  { country: 1, category: 1, _id: -1 },
+  { name: 'netflix_imdb_country_category_idx' }
+);
+
 export const NetflixImdbModel: Model<any> =
   (models.NetflixImdbModel as Model<any>) || model<any>('NetflixImdbModel', NetflixImdbSchema);

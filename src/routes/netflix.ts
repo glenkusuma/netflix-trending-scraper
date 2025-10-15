@@ -18,10 +18,10 @@ router.get('/', (_req, res) => {
         query: {
           country: "string (default: 'Global')",
           category: "movies_en | movies_non_en | shows_en | shows_non_en (default: 'movies_en')",
-          sample: "1|true to use local sample HTML (default: false)",
-          timeoutMs: 'optional number (milliseconds)'
+          sample: '1|true to use local sample HTML (default: false)',
+          timeoutMs: 'optional number (milliseconds)',
         },
-        example: '/netflix/top10?country=Global&category=movies_en&sample=1'
+        example: '/netflix/top10?country=Global&category=movies_en&sample=1',
       },
       {
         path: '/netflix/scrape',
@@ -31,29 +31,50 @@ router.get('/', (_req, res) => {
           useSample: 'boolean (optional; if true uses sample HTML)',
           country: "string (optional; default: 'Global')",
           category: "string (optional; default: 'movies_en')",
-          timeoutMs: 'number (optional; milliseconds)'
+          timeoutMs: 'number (optional; milliseconds)',
         },
         exampleBody: {
           useSample: true,
           country: 'Global',
           category: 'movies_en',
-          timeoutMs: 120000
-        }
+          timeoutMs: 120000,
+        },
       },
       {
         path: '/netflix/snapshots',
         method: 'GET',
         description: 'List saved snapshots (paged, most recent first)',
         query: {
-          country: "string (optional)",
-          category: "string (optional)",
+          country: 'string (optional)',
+          category: 'string (optional)',
           take: 'number (1..100; default: 20)',
-          cursor: 'string (opaque id for pagination)'
+          cursor: 'string (opaque id for pagination)',
         },
-        example: '/netflix/snapshots?country=Global&category=movies_en&take=5'
-      }
-    ]
+        example: '/netflix/snapshots?country=Global&category=movies_en&take=5',
+      },
+    ],
   });
+});
+
+router.get('/search', async (req, res) => {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q : undefined;
+    const take = Number(req.query.take ?? 20);
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
+    const country = typeof req.query.country === 'string' ? req.query.country : undefined;
+    const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+    logger.debug({ q, take, cursor, country, category }, 'GET /netflix/search');
+    const result = (await scrapeAndSaveSnapshot)
+      ? await (
+          await import('../services/netflix')
+        ).searchNetflixImdb({ q, take, cursor, country, category } as any)
+      : null;
+    // The line above uses dynamic import to avoid potential circular imports; service should export searchNetflixImdb
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, 'Netflix search failed');
+    res.status(500).json({ error: 'Netflix search failed', details: String(err) });
+  }
 });
 
 router.get('/top10', async (req, res) => {
@@ -66,7 +87,11 @@ router.get('/top10', async (req, res) => {
     logger.debug({ country, category, useSample }, 'GET /netflix/top10');
     const result = await scrapeTop10({ useSample, country, category });
     logger.info(
-      { rows: Array.isArray((result as any)?.data) ? (result as any).data.length : 0, category, country },
+      {
+        rows: Array.isArray((result as any)?.data) ? (result as any).data.length : 0,
+        category,
+        country,
+      },
       'netflix top10 scraped'
     );
     res.json(result);
@@ -85,7 +110,10 @@ router.post('/scrape', async (req, res) => {
     const timeoutMs = typeof body.timeoutMs === 'number' ? body.timeoutMs : undefined;
     logger.debug({ useSample, country, category, timeoutMs }, 'POST /netflix/scrape');
     const out = await scrapeAndSaveSnapshot({ useSample, country, category, timeoutMs });
-    logger.info({ id: (out as any)?.netflixTop10Id, country, category }, 'netflix snapshot persisted');
+    logger.info(
+      { id: (out as any)?.netflixTop10Id, country, category },
+      'netflix snapshot persisted'
+    );
     res.json({ ok: true, ...out });
   } catch (err) {
     logger.error({ err }, 'Netflix scrape+save failed');
@@ -106,7 +134,10 @@ router.get('/snapshots', async (req, res) => {
     logger.debug(params, 'GET /netflix/snapshots');
     const result = await listSnapshots(params);
     logger.info(
-      { count: Array.isArray((result as any)?.items) ? (result as any).items.length : 0, nextCursor: (result as any)?.nextCursor },
+      {
+        count: Array.isArray((result as any)?.items) ? (result as any).items.length : 0,
+        nextCursor: (result as any)?.nextCursor,
+      },
       'netflix snapshots fetched'
     );
     res.json(result);
