@@ -1,0 +1,148 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Scraper - Netflix Tudum Top 10 API (partial)",
+    "version": "1.0.0",
+    "description": "Minimal OpenAPI description for the Netflix scraping endpoints"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development"
+    }
+  ],
+  "paths": {
+    "/netflix/top10": {
+      "get": {
+        "summary": "Scrape preview",
+        "description": "Scrape Tudum Top 10 and return rows without persisting",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Country name (default: Global)"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["movies_en", "movies_non_en", "shows_en", "shows_non_en"]
+            },
+            "description": "Category (default: movies_en)"
+          },
+          {
+            "name": "sample",
+            "in": "query",
+            "schema": { "type": "boolean" },
+            "description": "Use local sample HTML (true/false)"
+          },
+          {
+            "name": "timeoutMs",
+            "in": "query",
+            "schema": { "type": "integer", "format": "int32" },
+            "description": "Optional timeout in milliseconds"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scrape result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/netflix/scrape": {
+      "post": {
+        "summary": "Scrape and persist snapshot",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "useSample": { "type": "boolean" },
+                  "country": { "type": "string" },
+                  "category": {
+                    "type": "string",
+                    "enum": ["movies_en", "movies_non_en", "shows_en", "shows_non_en"]
+                  },
+                  "timeoutMs": { "type": "integer", "format": "int32" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Snapshot persisted",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "details": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/netflix/snapshots": {
+      "get": {
+        "summary": "List snapshots",
+        "parameters": [
+          { "name": "country", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Opaque id for pagination"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paged snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "type": "object", "additionalProperties": true }
+                    },
+                    "nextCursor": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

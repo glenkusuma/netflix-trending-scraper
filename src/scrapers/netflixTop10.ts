@@ -2,6 +2,7 @@ import puppeteer = require('puppeteer');
 import fs = require('fs');
 import path = require('path');
 import { parseNumberDotsAware, parseRuntimeToMinutes, parseTimeWindow, sleep } from '../helper';
+import logger from '../helper/logger';
 
 type Top10Category =
   | 'movies_en'
@@ -93,18 +94,19 @@ async function openSource(
       samplePath ||
       process.env.NETFLIX_SAMPLE_PATH ||
       path.join(process.cwd(), 'sample', 'tudum-top-10-global-table.html');
-    console.info(`[netflix] render sample HTML from ${file}`);
+  logger.debug({ file }, 'netflix.scraper render sample HTML');
     const html = fs.readFileSync(file, 'utf-8');
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
     return;
   }
-  console.info(`[netflix] visiting ${url}`);
+  logger.debug({ url }, 'netflix.scraper visiting');
   await page.goto(url, { waitUntil: 'domcontentloaded' });
 }
 
 async function applyFilters(page: puppeteer.Page, country: string, categoryLabel?: string) {
   // Country
   try {
+  logger.debug({}, 'netflix.scraper applying filters');
     await page.waitForSelector(SELECTOR.countrySelected, { timeout: 10_000 });
     await page.click(SELECTOR.countrySelected);
     await page.waitForSelector(SELECTOR.countryOption, { timeout: 10_000 });
@@ -139,16 +141,19 @@ async function applyFilters(page: puppeteer.Page, country: string, categoryLabel
 
   // Let table refresh
   await sleep(1500);
+  logger.debug({}, 'netflix.scraper filters applied');
 }
 
 async function readTimeWindow(page: puppeteer.Page): Promise<ReturnType<typeof parseTimeWindow>> {
   const raw = await page
     .$eval(SELECTOR.eyebrow, (el) => (el as HTMLElement).innerText.trim())
     .catch(() => null);
+  logger.debug({ raw }, 'netflix.scraper timeWindow raw');
   return parseTimeWindow(raw);
 }
 
 async function readRows(page: puppeteer.Page) {
+  logger.debug({}, 'netflix.scraper reading table rows');
   return page.$$eval(
     SELECTOR.tableRows,
     (trs, SELECTOR_IN) => {
@@ -183,6 +188,7 @@ async function scrapeNetflixTop10(
   try {
     const page = await browser.newPage();
     await page.setDefaultNavigationTimeout(opts?.timeoutMs ?? 60_000);
+  logger.debug({}, 'netflix.scraper launched browser');
 
     // Resolve options with env fallbacks
     const useSample =
@@ -194,21 +200,24 @@ async function scrapeNetflixTop10(
     const categoryLabel = CATEGORY_LABEL[category];
 
     // Load source
-    await openSource(page, url, !!useSample, opts?.samplePath);
+  await openSource(page, url, !!useSample, opts?.samplePath);
     // Read page title for meta
     const pageTitle = (await page.title().catch(() => '')) || 'Netflix Top 10';
+  logger.debug({ pageTitle }, 'netflix.scraper page title');
     // Apply filters only for live page
     if (!useSample) {
       await applyFilters(page, country ?? 'Global', categoryLabel);
     }
 
     // Wait rows and read
-    await page.waitForSelector(SELECTOR.tableRows, { timeout: opts?.timeoutMs ?? 60_000 });
+  await page.waitForSelector(SELECTOR.tableRows, { timeout: opts?.timeoutMs ?? 60_000 });
+  logger.debug({}, 'netflix.scraper table rows ready');
     const timeWindow = await readTimeWindow(page);
     const data = await readRows(page);
+  logger.info({ count: Array.isArray(data) ? data.length : 0 }, 'netflix.scraper rows read');
 
     if (!data.length) {
-      console.warn('[netflix] No rows found after filtering - selectors may have changed.');
+    logger.warn({}, 'netflix.scraper no rows found; selectors may have changed');
     }
 
     const normalized: Top10Row[] = (data as any[]).map((r) => ({
@@ -235,7 +244,8 @@ async function scrapeNetflixTop10(
       data: normalized,
     };
   } finally {
-    await browser.close();
+  await browser.close();
+  logger.debug({}, 'netflix.scraper browser closed');
   }
 }
 

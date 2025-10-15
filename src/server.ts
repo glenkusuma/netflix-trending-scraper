@@ -1,6 +1,7 @@
 import express = require('express');
 import dotenv = require('dotenv');
 import morgan = require('morgan');
+import logger from './helper/logger';
 import { connectMongo } from './db';
 import { ImdbTitleModel } from './models/imdb';
 import { NetflixTop10SnapshotModel } from './models/netflix';
@@ -11,30 +12,41 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-// Inbound request logging: log hit and completion timing for every endpoint
+// Inbound request logging integrated with pino
 app.use((req, res, next) => {
   const start = Date.now();
-  console.info(`[req] -> ${req.method} ${req.originalUrl}`);
+  logger.info({ req: { method: req.method, url: req.originalUrl } }, 'request:start');
   res.on('finish', () => {
     const ms = Date.now() - start;
-    console.info(`[req] <- ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`);
+    logger.info(
+      { res: { statusCode: res.statusCode }, durationMs: ms, req: { method: req.method, url: req.originalUrl } },
+      'request:finish'
+    );
   });
   next();
 });
-app.use(morgan('dev'));
+// Keep morgan but route to pino for concise access logs
+app.use(
+  morgan(':method :url :status :res[content-length] - :response-time ms', {
+    stream: {
+      write: (str: string) => logger.info({ access: str.trim() }),
+    } as any,
+  })
+);
 
 // Connect to Mongo on startup and sync indexes
 (async () => {
   try {
     await connectMongo();
     await Promise.all([ImdbTitleModel.syncIndexes(), NetflixTop10SnapshotModel.syncIndexes()]);
-    console.log('[mongo] indexes synced');
+    logger.info({ scopes: ['mongo'] }, 'indexes synced');
   } catch (err) {
-    console.error('Mongo initialization failed at startup:', err);
+    logger.error({ err }, 'Mongo initialization failed at startup');
   }
 })();
 
 app.get('/', async (_req, res) => {
+  logger.info({ route: '/' }, 'health');
   res.json({ status: 'ok', message: 'Scraper backend running' });
 });
 
@@ -45,6 +57,5 @@ app.use('/imdb', imdbRouter);
 const port = Number(process.env.SERVER_PORT || 8000);
 
 app.listen(port, () => {
-  console.log(`App is listening on port ${port}`);
-  // Ready
+  logger.info({ port }, 'server listening');
 });

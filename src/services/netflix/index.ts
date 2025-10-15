@@ -6,6 +6,7 @@ import {
 } from '../../models/netflix';
 import { createHash } from 'crypto';
 import { getTitle, searchTitles } from '../imdb';
+import logger from '../../helper/logger';
 import { NetflixImdbModel } from '../../models/combine';
 
 // Scraper exports via `export =` default function
@@ -36,6 +37,7 @@ export async function scrapeTop10(options: ScrapeOptions = {}) {
     timeoutMs,
     samplePath,
   } = options;
+  logger.debug({ country, category, useSample }, 'netflix scrapeTop10 start');
   // Global-category specific URLs mapping (kept in a typed variable as requested)
   type GlobalCategoryUrlMap = Partial<Record<Top10Category, string>>;
   const GLOBAL_CATEGORY_URL: GlobalCategoryUrlMap = {
@@ -69,8 +71,16 @@ export async function scrapeTop10(options: ScrapeOptions = {}) {
   const isGlobal = !country || country.trim().toLowerCase() === 'global';
   const urlOverride = isGlobal ? GLOBAL_CATEGORY_URL[category] : buildCountryUrl(country, category);
   const result = await scrapeNetflixTop10(urlOverride, opts);
+  logger.info({
+    url: urlOverride,
+    rows: Array.isArray((result as any)?.data) ? (result as any).data.length : 0,
+    timeWindow: (result as any)?.meta?.timeWindow?.type,
+  }, 'netflix scrapeTop10 scraped');
 
   const enrichedImdb = await scrapeTop10WithImdb(result);
+  logger.info({
+    rows: Array.isArray((enrichedImdb as any)?.data) ? (enrichedImdb as any).data.length : 0,
+  }, 'netflix scrapeTop10 enriched with IMDb');
 
   return { ...enrichedImdb };
 }
@@ -85,6 +95,9 @@ export async function scrapeTop10WithImdb(base: Top10Result): Promise<{
   data: Array<Top10Row & { imdb: import('../imdb/clients/imdbapi').ImdbTitle | null }>;
 }> {
   const imdbLimit = 1; // Only fetch the top result for enrichment
+  logger.debug({
+    rows: Array.isArray((base as any)?.data) ? (base as any).data.length : 0,
+  }, 'netflix scrapeTop10WithImdb start');
 
   // Query IMDb in parallel but stagger each request by 1s per item index to avoid burst-rate
   // (each item waits index * 1000ms before making network calls)
@@ -93,10 +106,12 @@ export async function scrapeTop10WithImdb(base: Top10Result): Promise<{
       // stagger start by index (0 => 0ms, 1 => 1000ms, 2 => 2000ms, ...)
       await new Promise((res) => setTimeout(res, idx * 500));
       try {
+  logger.debug({ title: row.title }, 'imdb.search start');
         const res = await searchTitles(row.title, imdbLimit);
         const titleId = (res?.titles && res.titles[0]?.id) || null;
-
+  logger.debug({ title: row.title, titleId }, 'imdb.search done');
         const imdbDetail = titleId ? await getTitle(titleId) : null;
+  logger.debug({ titleId, ok: !!imdbDetail }, 'imdb.getTitle done');
 
         return { ...row, imdb: imdbDetail } as Top10Row & {
           imdb: import('../imdb/clients/imdbapi').ImdbTitle | null;
@@ -113,6 +128,7 @@ export async function scrapeTop10WithImdb(base: Top10Result): Promise<{
 }
 
 export async function scrapeAndSaveSnapshot(options: ScrapeOptions = {}) {
+  logger.debug(options, 'netflix scrapeAndSaveSnapshot start');
   const result = await scrapeTop10(options);
   // Generate a stable _id from page title and sourceUrl
   const idInput = `netflix|${result.meta.sourceUrl || ''}`;
@@ -155,6 +171,12 @@ export async function scrapeAndSaveSnapshot(options: ScrapeOptions = {}) {
     { $set: { _id: stableId, ...doc } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).lean();
+  logger.info({
+    _id: stableId,
+    rows: (doc as any)?.data?.length,
+    country: (doc as any)?.country,
+    category: (doc as any)?.category,
+  }, 'netflix snapshot upserted');
 
   const idInputNetflixImdb = `netflix_imdb|${result.meta.sourceUrl || ''}`;
   const stableIdNetflixImdb = createHash('sha1').update(idInputNetflixImdb).digest('hex');
@@ -164,6 +186,7 @@ export async function scrapeAndSaveSnapshot(options: ScrapeOptions = {}) {
     { $set: { _id: stableIdNetflixImdb, ...doc } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).lean();
+  logger.info({ _id: stableIdNetflixImdb }, 'netflix_imdb upserted');
 
   return {
     netflixTop10Id: String(snapshot!._id),
@@ -184,6 +207,7 @@ export async function listSnapshots(params: {
   if (params.cursor) q._id = { $lt: params.cursor };
 
   const items = await NetflixTop10SnapshotModel.find(q).sort({ _id: -1 }).limit(take).lean();
+  logger.debug({ q, take, got: items.length }, 'netflix listSnapshots');
   const nextCursor = items.length === take ? String(items[items.length - 1]!._id) : undefined;
   return { items, nextCursor };
 }

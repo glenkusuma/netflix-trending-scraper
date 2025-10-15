@@ -5,6 +5,7 @@
  * - IMDBAPI_BASE_URL (default: https://api.imdbapi.dev)
  */
 import axios from 'axios';
+import logger from '../../../helper/logger';
 
 const BASE_URL = process.env.IMDBAPI_BASE_URL || 'https://api.imdbapi.dev';
 
@@ -32,14 +33,18 @@ export async function searchTitles(query: string, limit?: number): Promise<Searc
   if (!query || !query.trim()) throw new Error('query is required');
   const params: Record<string, any> = { query };
   if (limit !== undefined) params.limit = limit;
+  logger.debug({ baseURL: BASE_URL, params }, 'imdb.api GET /search/titles');
   const { data } = await client.get<SearchTitlesResponse>('/search/titles', { params });
+  logger.debug({ count: Array.isArray(data?.titles) ? data.titles!.length : 0 }, 'imdb.api /search/titles ok');
   return data;
 }
 
 export async function getTitleById(titleId: string): Promise<ImdbTitle> {
   if (!/^tt\d{5,10}$/i.test(titleId)) throw new Error('titleId must look like tt1234567');
   const params: Record<string, any> = {};
+  logger.debug({ baseURL: BASE_URL, titleId }, 'imdb.api GET /titles/:id');
   const { data } = await client.get<ImdbTitle>(`/titles/${titleId}`, { params });
+  logger.debug({ titleId }, 'imdb.api /titles/:id ok');
   return data;
 }
 
@@ -47,7 +52,9 @@ export async function batchGetTitles(titleIds: string[]): Promise<{ titles?: Imd
   if (!Array.isArray(titleIds) || titleIds.length === 0) throw new Error('titleIds required');
   const qs = new URLSearchParams();
   for (const id of titleIds) qs.append('titleIds', id);
+  logger.debug({ count: titleIds.length }, 'imdb.api GET /titles:batchGet');
   const { data } = await client.get<{ titles?: ImdbTitle[] }>(`/titles:batchGet?${qs.toString()}`);
+  logger.debug({ count: Array.isArray(data?.titles) ? data.titles!.length : 0 }, 'imdb.api /titles:batchGet ok');
   return data;
 }
 
