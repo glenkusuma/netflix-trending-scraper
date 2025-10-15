@@ -1,0 +1,18 @@
+services:
+  uptimekuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptimekuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptimekuma-data:/app/data
+    networks:
+      - mongo-cluster
+
+networks:
+  mongo-cluster:
+
+volumes:
+  uptimekuma-data:
+    name: scraper_uptimekuma_data
